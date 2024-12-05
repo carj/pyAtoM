@@ -9,7 +9,8 @@ import json
 import os
 import platform
 import sys
-
+from enum import Enum
+from typing import Generator
 
 import requests
 from requests import Session
@@ -53,14 +54,71 @@ class Authentication:
         if response.status_code != requests.codes.ok:
             raise RuntimeError("Not Authenticated")
 
+class QueryField(Enum):
+    all: str = "_all"
+    title: str = "title"
+    identifier: str = "identifier"
+    referenceCode: str = "referenceCode"
+    scopeAndContent: str = "scopeAndContent"
+    archivalHistory: str = "archivalHistory"
+    extentAndMedium: str = "extentAndMedium"
+    genre: str = "genre"
+    subject: str = "subject"
+    name: str = "name"
+    place: str = "place"
+
+class QueryOperator(Enum):
+    and_terms: str = "and"
+    or_terms: str = "or"
+    not_terms: str = "not"
+
+class Query:
+    value: str
+    operator: QueryOperator
+    field: QueryField
+
+    def __init__(self, query_value: str = "*", query_field: QueryField = QueryField.all, query_operator: QueryOperator = QueryOperator.and_terms):
+        self.value = query_value
+        self.field = query_field
+        self.operator = query_operator
+
+
 class AccessToMemory(Authentication):
 
-    def search(self, query: str, sf_culture: str = None, **kwargs):
+
+    def download(self, slug: str, filename: str = None):
+        """
+        This endpoint will stream the content of the master digital object associated with the archival description whose slug is provided.
+
+        :return: filename
+        """
+
+        CHUNK_SIZE: int = 16 * 1024
+
+        headers = {'Content-Type': 'application/octet-stream'}
+        if self.api_token is not None:
+            headers['REST-API-Key'] = self.api_token
+        path = f"/api/informationobjects/{slug}/digitalobject"
+        url = f"{self.base_url}{path}"
+        with self.session.get(url, auth=self.auth, headers=headers, stream=True) as response:
+            if response.status_code == requests.codes.ok:
+                if 'Content-Disposition' in response.headers:
+                    disposition: str = response.headers['Content-Disposition']
+                    filename = disposition.replace("attachment; filename=", "")
+                with open(filename, 'wb') as file:
+                    for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+                        file.write(chunk)
+                        file.flush()
+        return filename
+
+
+    def search(self, query_terms: list[Query] = None,  digital_object: bool = False, sf_culture: str = None) -> Generator:
         """
         Search the repository for information objects matching the search
 
 
-        :param query:
+        :param digital_object: Include descriptions with a digital object
+        :param query_terms: List of one or more query terms
         :param sf_culture:  ISO 639-1 language code defaults to the default culture of the application.
         :return: A dict object containing the ISAD(g) metadata
         """
@@ -69,10 +127,40 @@ class AccessToMemory(Authentication):
             headers['REST-API-Key'] = self.api_token
         path = "/api/informationobjects"
         url = f"{self.base_url}{path}"
-        response = self.session.get(url, auth=self.auth, headers=headers, params={'sf_culture': sf_culture})
+        params = {}
+        if digital_object:
+            params['onlyMedia'] = 1
+        if sf_culture is not None:
+            params['sf_culture'] = sf_culture
+        q_i: int = 0
+        if query_terms is not None:
+            for q in query_terms:
+                params[f"sq{q_i}"] = q.value
+                params[f"so{q_i}"] = q.operator.value
+                params[f"sf{q_i}"] = q.field.value
+                q_i = q_i + 1
+        response = self.session.get(url, auth=self.auth, headers=headers, params=params)
+        params['skip'] = 0
         if response.status_code == requests.codes.ok:
             document = response.content.decode("utf-8")
-            return json.loads(document)
+            results_dict = json.loads(document)
+            total_hits = int(results_dict['total'])
+            results = results_dict['results']
+            for r in results:
+                yield r
+            found: int = len(results)
+            while total_hits > found:
+                params['skip'] = found
+                response = self.session.get(url, auth=self.auth, headers=headers, params=params)
+                if response.status_code == requests.codes.ok:
+                    document = response.content.decode("utf-8")
+                    results_dict = json.loads(document)
+                    results = results_dict['results']
+                    for r in results:
+                        yield r
+                    found = found + len(results)
+
+
 
     def get_by_identifier(self, identifier: str, sf_culture: str = None) -> dict | None:
         """
