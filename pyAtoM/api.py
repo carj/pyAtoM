@@ -23,6 +23,12 @@ API_KEY_HEADER = "REST-API-Key"
 
 class Authentication:
 
+    def __str__(self):
+        return f"pyAtoM version: {pyAtoM.__version__}  (Access To Memory 2.8 Compatible) Connected to: {self.server}"
+
+    def __repr__(self):
+        return self.__str__()
+
     def __init__(self, username: str = None, password: str = None, api_key: str = None, server: str = None,
                  protocol: str = "https"):
         """
@@ -33,6 +39,7 @@ class Authentication:
         :param server:    The URL of the AtoM server
         """
 
+        self.server: str = server
         self.session: Session = requests.Session()
         self.api_token = api_key
 
@@ -47,7 +54,7 @@ class Authentication:
         self.session.headers.update({'User-Agent': f'pyAtoM SDK/({pyAtoM.__version__}) '
                                                    f' ({platform.platform()}/{os.name}/{sys.platform})'})
 
-        self.base_url = f"{protocol}://{server}"
+        self.base_url = f"{protocol}://{self.server}"
         path = "/api/informationobjects"
         url = f"{self.base_url}{path}"
         response = self.session.get(url, auth=self.auth, headers=headers)

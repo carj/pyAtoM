@@ -21,8 +21,8 @@ if sys.argv[-1] == 'publish':
 # This call to setup() does all the work
 setup(
     name=PKG,
-    version="0.0.1",
-    description="Python library for the AtoM archival description and access platform",
+    version="0.2.0",
+    description="Python library for the AtoM archival description and access platform API",
     long_description=README,
     long_description_content_type="text/markdown",
     url="",
@@ -44,8 +44,8 @@ setup(
     keywords='API Preservation',
     install_requires=["requests", "urllib3", "certifi"],
     project_urls={
-        'Documentation': '',
+        'Documentation': 'https://github.com/carj/pyAtoM',
         'Source': 'https://github.com/carj/pyAtoM',
-        'Discussion Forum': '',
+        'Discussion Forum': 'https://github.com/carj/pyAtoM',
     }
 )
