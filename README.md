@@ -35,7 +35,6 @@ To install pyAtoM, simply run this simple command in your terminal of choice:
 
 Finding records by Slug
 
-
     from pyAtoM import *
 
     client = AccessToMemory(username="demo@example.com", password="demo", server="demo.accesstomemory.org")
@@ -45,7 +44,17 @@ Finding records by Slug
     item: dict = client.get(slug)
 
 
-Searching for Records
+Searching for all Records
+
+    from pyAtoM import *
+
+    client = AccessToMemory(username="demo@example.com", password="demo", server="demo.accesstomemory.org")
+
+    for result in client.search():
+        print(result)
+
+
+Searching for Records with Query terms
 
 
     from pyAtoM import *
