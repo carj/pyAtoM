@@ -21,7 +21,7 @@ if sys.argv[-1] == 'publish':
 # This call to setup() does all the work
 setup(
     name=PKG,
-    version="0.2.0",
+    version="0.2.1",
     description="Python library for the AtoM archival description and access platform API",
     long_description=README,
     long_description_content_type="text/markdown",
