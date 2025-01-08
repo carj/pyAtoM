@@ -47,9 +47,11 @@ class Authentication:
         if (username is not None) and (password is not None):
             self.auth = HTTPBasicAuth(username, password)
         else:
-            if self.api_token is not None:
-                headers['REST-API-Key'] = self.api_token
             self.auth = None
+
+        if self.api_token is not None:
+            headers['REST-API-Key'] = self.api_token
+
 
         self.session.headers.update({'User-Agent': f'pyAtoM SDK/({pyAtoM.__version__}) '
                                                    f' ({platform.platform()}/{os.name}/{sys.platform})'})
