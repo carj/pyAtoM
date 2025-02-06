@@ -12,6 +12,8 @@ The Library provides APIs for the following:
 * Get a record by its identifier
 * Search for records
 * Download a digital object attached to a record
+* List taxonomy terms 
+
 
 
 ## License

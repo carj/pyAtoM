@@ -10,7 +10,7 @@ import os
 import platform
 import sys
 from enum import Enum
-from typing import Generator
+from typing import Generator, Union, Optional, Any
 
 import requests
 from requests import Session
@@ -50,7 +50,7 @@ class Authentication:
             self.auth = None
 
         if self.api_token is not None:
-            headers['REST-API-Key'] = self.api_token
+            self.session.headers.update({API_KEY_HEADER: self.api_token})
 
 
         self.session.headers.update({'User-Agent': f'pyAtoM SDK/({pyAtoM.__version__}) '
@@ -95,29 +95,28 @@ class Query:
 class AccessToMemory(Authentication):
 
 
-    def download(self, slug: str, filename: str = None):
+    def download(self, slug: str, filename: str = None) -> str:
         """
         This endpoint will stream the content of the master digital object associated with the archival description whose slug is provided.
 
         :return: filename
         """
 
-        CHUNK_SIZE: int = 16 * 1024
+        CHUNK_SIZE: int = 16 * 1024  # 16KB chunks
 
         headers = {'Content-Type': 'application/octet-stream'}
-        if self.api_token is not None:
-            headers['REST-API-Key'] = self.api_token
         path = f"/api/informationobjects/{slug}/digitalobject"
         url = f"{self.base_url}{path}"
         with self.session.get(url, auth=self.auth, headers=headers, stream=True) as response:
             if response.status_code == requests.codes.ok:
-                if 'Content-Disposition' in response.headers:
-                    disposition: str = response.headers['Content-Disposition']
-                    filename = disposition.replace("attachment; filename=", "")
+                if filename is None:
+                    if 'Content-Disposition' in response.headers:
+                        disposition: str = response.headers['Content-Disposition']
+                        filename = disposition.replace("attachment; filename=", "")
                 with open(filename, 'wb') as file:
                     for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
                         file.write(chunk)
-                        file.flush()
+                    file.flush()
         return filename
 
 
@@ -132,8 +131,6 @@ class AccessToMemory(Authentication):
         :return: A dict object containing the ISAD(g) metadata
         """
         headers = {"Accept": "application/json"}
-        if self.api_token is not None:
-            headers['REST-API-Key'] = self.api_token
         path = "/api/informationobjects"
         url = f"{self.base_url}{path}"
         params = {}
@@ -171,7 +168,7 @@ class AccessToMemory(Authentication):
 
 
 
-    def get_by_identifier(self, identifier: str, sf_culture: str = None) -> dict | None:
+    def get_by_identifier(self, identifier: str, sf_culture: str = None) -> Optional[dict]:
         """
         Return an information object by its identifier, not the slug
 
@@ -182,8 +179,6 @@ class AccessToMemory(Authentication):
         """
 
         headers = {"Accept": "application/json"}
-        if self.api_token is not None:
-            headers['REST-API-Key'] = self.api_token
         path = "/api/informationobjects"
         url = f"{self.base_url}{path}"
         params = {'sq0': f'\"{identifier}\"', 'sf0': "identifier", 'sort': 'identifier', 'sf_culture': sf_culture}
@@ -192,7 +187,7 @@ class AccessToMemory(Authentication):
             document = response.content.decode("utf-8")
             return json.loads(document)
 
-    def get_parent(self, slug: str, sf_culture: str = None) -> dict | None:
+    def get_parent(self, slug: str, sf_culture: str = None) -> Optional[dict]:
         """
         This method will obtain all information object data available for the parent of the given slug
 
@@ -209,7 +204,7 @@ class AccessToMemory(Authentication):
 
         return None
 
-    def get(self, slug: str, sf_culture: str = None) -> dict:
+    def get(self, slug: str, sf_culture: str = None) -> Optional[dict]:
         """
         This method will obtain all information object data available for a particular slug
 
@@ -218,8 +213,6 @@ class AccessToMemory(Authentication):
         :return: A dict object containing the ISAD(g) metadata
         """
         headers = {"Accept": "application/json"}
-        if self.api_token is not None:
-            headers['REST-API-Key'] = self.api_token
         path = "/api/informationobjects"
         url = f"{self.base_url}{path}/{slug}"
         response = self.session.get(url, auth=self.auth, headers=headers, params={'sf_culture': sf_culture})
@@ -228,3 +221,25 @@ class AccessToMemory(Authentication):
             d: dict = json.loads(document)
             d['slug'] = slug
             return d
+
+
+    def taxonomies(self, taxonomy_id: int,  sf_culture: str = None) -> Optional[list[str]]:
+        """
+        This method will obtain all the terms from a specified taxonomy
+
+        :param taxonomy_id:         the ID of the taxonomy whose terms you wish to return
+        :param sf_culture:          ISO 639-1 language code defaults to the default culture of the application.
+        :return:                    A list containing the taxonomy terms
+        """
+
+        headers: dict = {"Accept": "application/json"}
+        path: str = "/api/taxonomies/"
+        url: str = f"{self.base_url}{path}/{taxonomy_id}"
+        response = self.session.get(url, auth=self.auth, headers=headers,  params={'sf_culture': sf_culture})
+        result = []
+        if response.status_code == requests.codes.ok:
+            document: dict = json.loads(response.content.decode("utf-8"))
+            for d in document:
+                result.append(d['name'])
+            return result
+
